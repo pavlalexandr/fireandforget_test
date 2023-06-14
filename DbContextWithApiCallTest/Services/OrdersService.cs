@@ -8,14 +8,14 @@ namespace DbContextWithApiCallTest.Services
     public class OrdersService : IOrdersService
     {
         private readonly IOrdersDataService _ordersDataService;
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IServiceScopeFactory _scopeFactory;
 
         public OrdersService(
             IOrdersDataService ordersDataService,
-            IServiceProvider serviceProvider)
+            IServiceScopeFactory scopeFactory)
         {
             _ordersDataService = ordersDataService;
-            _serviceProvider = serviceProvider;
+            _scopeFactory = scopeFactory;
         }
 
         public async Task<Order> GetOrderByIdAsync(int id)
@@ -35,7 +35,7 @@ namespace DbContextWithApiCallTest.Services
             _ = Task.Run(async () =>
             {
                 const int defaultOrderId = 1;
-                using var scope = _serviceProvider.CreateScope();
+                using var scope = _scopeFactory.CreateScope();
                 var scopedOrdersDataService = scope.ServiceProvider.GetRequiredService<IOrdersDataService>();
                 ILogger<OrdersService> _logger = scope.ServiceProvider.GetRequiredService<ILogger<OrdersService>>();
                 try
@@ -52,12 +52,12 @@ namespace DbContextWithApiCallTest.Services
 
                     _logger.LogInformation(message: "Getting data from DB");
 
-                    var orderFromDb = await GetOrderByIdAsync(defaultOrderId);
+                    var orderFromDb = await scopedOrdersDataService.GetOrderAsync(defaultOrderId);
                     _logger.LogInformation(message: $"order.id={defaultOrderId} status={orderFromDb.Status}");
 
                     _logger.LogInformation("Saving data to DB");
 
-                    await UpdateOrder(defaultOrderId, "super_2");
+                    await scopedOrdersDataService.SetOrderStatusAsync(defaultOrderId, "super_2");
 
                     _logger.LogInformation(message: "Getting data from API");
                     var orderFromApi = await ordersUri.AppendPathSegment("1").GetJsonAsync<Order>();
